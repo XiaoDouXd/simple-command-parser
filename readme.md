@@ -50,7 +50,7 @@ If no any valid command can be found before the first paramName, the command wou
 
 ##### Multiple line
 
-You can concat two line by using **'\\'** in **the END of** line, and write line-end comments using **"//"**. When a line can not be parse to any part of command, it wound be discarded, and it would not interrupt the concatenating.
+You can concat two line by using **'\\'** in **the END of** line, and write line-end comments using **"//"**. When a line can not be parsed to any part of command, it wound be discarded, and it would not interrupt the concatenating.
 
 ```
 command paramA #paramName paramB\
@@ -76,7 +76,7 @@ var paramOfEvent = cmd["event"][0] 	// string: resignation
     
 var param1Int = cmd.Int(0);			// int: 20240321
 var paramOfEventInt = cmd.Int("event", 2)	// int: 0xFF
-var srcStr = cmd.ToString();		// string: command "20240321" "chengdu" #event "resignation" "01" "0xFF"
+var srcStr = cmd.ToString();		// string: command 20240321 chengdu #event resignation 01 0xFF
 
 // parse multiple line command
 var cmds = CMD.ToCMDs(file);		// cmd=>List<CMD>; file=>StreanReader

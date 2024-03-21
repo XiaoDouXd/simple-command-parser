@@ -8,7 +8,7 @@ Cmd2 params ss #xx \
 if aaaa bbb cc\
 		// xxx
 //c xxname
-	xx  \
-	// xx
-\\
+"	xx  \
+	 xx\
+\
 else xx

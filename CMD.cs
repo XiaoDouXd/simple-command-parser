@@ -38,17 +38,16 @@ namespace Command
     ///     </para>
     /// </para>
     /// </summary>
-    public struct CMD
+    public readonly struct CMD
     {
         public string? Command { get; }
 
-        public string Src => _cmdFullStrCache ??= GetFullStr(this);
-        public readonly IReadOnlyList<string> DirParams => _dirParams ?? Array.Empty<string>();
-        public readonly IReadOnlyList<string> this[string? paramName] =>
+        public string? Text { get; }
+        public IReadOnlyList<string> DirParams => _dirParams ?? Array.Empty<string>();
+        public IReadOnlyList<string> this[string? paramName] =>
             _params == null || paramName == null ? Array.Empty<string>() :
             _params.TryGetValue(paramName, out var v) ? v : Array.Empty<string>();
 
-        private string? _cmdFullStrCache;
         private readonly string[]? _dirParams;
         private readonly SortedList<string, string[]>? _params;
 
@@ -61,18 +60,21 @@ namespace Command
         public CMD(string? cmd, StringBuilder? sBuilder = null)
             : this(cmd != null ? cmd.AsSpan() : ReadOnlySpan<char>.Empty, sBuilder) {}
 
-        public CMD(string?[]? args, StringBuilder? sBuilder = null)
+        public CMD(string?[]? args, StringBuilder? sBuilder = null, StringBuilder? sBuilder2 = null)
         {
             _params = null;
             _dirParams = null;
-            _cmdFullStrCache = null;
+            Text = string.Empty;
             Command = string.Empty;
             if (args is not { Length: > 0 }) return;
 
             try
             {
                 sBuilder ??= new StringBuilder();
+                sBuilder2 ??= new StringBuilder();
                 sBuilder.Clear();
+                sBuilder2.Clear();
+
                 var tempList = new List<string>();
                 var paramList = new SortedList<string, string[]>();
 
@@ -91,9 +93,14 @@ namespace Command
                                 if (IsSpace(c))
                                 {
                                     if (Command == string.Empty && sBuilder.Length > 0)
-                                        Command = ApplyEscape(sBuilder.ToString(), sBuilder);
+                                        sBuilder2.Append(Command = ApplyEscape(sBuilder.ToString(), sBuilder))
+                                            .Append(' ');
                                     else if (Command != string.Empty)
-                                        tempList.Add(ApplyEscape(sBuilder.ToString(), sBuilder));
+                                    {
+                                        var s2 = ApplyEscape(sBuilder.ToString(), sBuilder);
+                                        tempList.Add(s2);
+                                        sBuilder2.Append(StrSpanChar).Append(s2).Append(StrSpanChar).Append(' ');
+                                    }
 
                                     sBuilder.Clear();
                                     continue;
@@ -102,8 +109,13 @@ namespace Command
                             }
 
                             if (Command == string.Empty && sBuilder.Length > 0)
-                                Command = ApplyEscape(sBuilder.ToString(), sBuilder);
-                            else if (sBuilder.Length > 0) tempList.Add(ApplyEscape(sBuilder.ToString(), sBuilder));
+                                sBuilder2.Append(Command = ApplyEscape(sBuilder.ToString(), sBuilder));
+                            else if (sBuilder.Length > 0)
+                            {
+                                var s2 = ApplyEscape(sBuilder.ToString(), sBuilder);
+                                tempList.Add(s2);
+                                sBuilder2.Append(StrSpanChar).Append(s2).Append(StrSpanChar).Append(' ');
+                            }
                         }
                         continue;
                     }
@@ -111,9 +123,16 @@ namespace Command
                     if (v.StartsWith(ParamChar))
                     {
                         if (!string.IsNullOrWhiteSpace(curParamName))
+                        {
                             paramList[curParamName] = tempList.ToArray();
+                            sBuilder2.Append(ParamChar).Append(curParamName).Append(' ');
+                            foreach (var p in tempList) sBuilder2.Append(p).Append(' ');
+                        }
                         else if (curParamName == null)
+                        {
                             _dirParams = tempList.ToArray();
+                            foreach (var p in tempList) sBuilder2.Append(p).Append(' ');
+                        }
 
                         curParamName = v[1..];
                         tempList.Clear();
@@ -124,11 +143,22 @@ namespace Command
                 if (tempList.Count > 0)
                 {
                     if (!string.IsNullOrWhiteSpace(curParamName))
+                    {
                         paramList[curParamName] = tempList.ToArray();
+                        sBuilder2.Append(ParamChar).Append(curParamName).Append(' ');
+                        foreach (var p in tempList)
+                            sBuilder2.Append(p).Append(' ');
+                    }
                     else if (curParamName == null)
+                    {
                         _dirParams = tempList.ToArray();
+                        foreach (var p in tempList)
+                            sBuilder2.Append(p).Append(' ');
+                    }
                 }
 
+                TrimEnd(sBuilder2);
+                Text = sBuilder2.ToString();
                 _params = paramList;
             }
             catch (Exception)
@@ -148,8 +178,8 @@ namespace Command
 
             _params = null;
             _dirParams= null;
-            _cmdFullStrCache = null;
             Command = string.Empty;
+            Text = cmd.ToString().TrimEnd();
             if (cmd.Length <= 0) return;
 
             sBuilder ??= new StringBuilder();
@@ -276,10 +306,10 @@ namespace Command
             }
         }
 
-        public bool Equals(CMD o) => o.Src == Src;
+        public bool Equals(CMD o) => o.Text == Text;
         public override bool Equals([NotNullWhen(true)] object? obj) => obj is CMD cmd && Equals(cmd);
-        public override int GetHashCode() => string.GetHashCode(Src);
-        public override string ToString() => Src;
+        public override int GetHashCode() => string.GetHashCode(Text);
+        public override string ToString() => Text ?? string.Empty;
         public static bool operator !=(CMD left, CMD right) => !(left == right);
         public static bool operator ==(CMD left, CMD right) => left.Equals(right);
 
@@ -619,31 +649,28 @@ namespace Command
         private static void ParseFromStream(ICollection<CMD> target, string line, StringBuilder sBuilder)
         {
             var joinNextLine = false;
-            for (var i = line.Length - 1; i >= 0; i--)
-            {
-                if (i == line.Length - 1)
-                {
-                    if (line[i] == '\\') joinNextLine = true;
-                    else break;
-                    continue;
-                }
-
-                if (line[i] != '\\') break;
-                joinNextLine = !joinNextLine;
-            }
-
-            if (joinNextLine)
-            {
-                if (line.Length == 1) return;
-                line = line[..^1];
-            }
-
             var comment = line.IndexOf("//", StringComparison.Ordinal);
             switch (comment)
             {
                 case > 0:
                 {
                     var isEmptyOrSpace = true;
+
+                    for (var i = comment - 1; i >= 0; i--)
+                    {
+                        if (i == comment - 1)
+                        {
+                            if (line[i] == '\\') joinNextLine = true;
+                            else break;
+                            continue;
+                        }
+
+                        if (line[i] != '\\') break;
+                        joinNextLine = !joinNextLine;
+                    }
+                    if (joinNextLine) comment--;
+                    if (comment <= 0) return;
+
                     sBuilder.Append(' ');
                     for (var i = 0; i < comment; i++)
                     {
@@ -655,7 +682,26 @@ namespace Command
                     break;
                 }
                 case 0: return;
-                default: sBuilder.Append(' ').Append(line); break;
+                default:
+                {
+                    for (var i = line.Length - 1; i >= 0; i--)
+                    {
+                        if (i == line.Length - 1)
+                        {
+                            if (line[i] == '\\') joinNextLine = true;
+                            else break;
+                            continue;
+                        }
+
+                        if (line[i] != '\\') break;
+                        joinNextLine = !joinNextLine;
+                    }
+                    if (joinNextLine && line.Length <= 1) return;
+
+                    sBuilder.Append(' ').Append(line);
+                    if (joinNextLine) sBuilder.Length--;
+                    break;
+                }
             }
 
             if (joinNextLine) return;
@@ -664,6 +710,46 @@ namespace Command
         }
 
         #endregion
+
+        public string FormattedText
+        {
+            get
+            {
+                var sBuilder = new StringBuilder();
+                if (!string.IsNullOrEmpty(Command)) sBuilder.Append(Command).Append(' ');
+                if (_dirParams != null) foreach (var p in _dirParams) AppendStringParam(sBuilder, p).Append(' ');
+                if (_params == null) return sBuilder.ToString();
+                {
+                    foreach (var (k, v) in _params)
+                    {
+                        sBuilder.Append(ParamChar).Append(k).Append(' ');
+                        foreach (var p in v) AppendStringParam(sBuilder, p).Append(' ');
+                    }
+                }
+                return sBuilder.ToString();
+
+                static StringBuilder AppendStringParam(StringBuilder sb, string p)
+                {
+                    sb.Append(StrSpanChar);
+                    foreach (var c in p)
+                        sb.Append(c switch
+                        {
+                            '"' => "\\\"",
+                            '\\' => "\\\\",
+                            '\n' => "\\n",
+                            '\t' => "\\t",
+                            '\0' => "\\0",
+                            '\a' => "\\a",
+                            '\b' => "\\b",
+                            '\v' => "\\v",
+                            '\f' => "\\f",
+                            '\r' => "\\r",
+                            _ => c.ToString(),
+                        });
+                    return sb.Append(StrSpanChar);
+                }
+            }
+        }
 
         private static string ApplyEscape(ReadOnlySpan<char> str, StringBuilder sBuilder)
         {
@@ -711,7 +797,8 @@ namespace Command
                 }
                 catch (Exception) { return false; }
             }
-            else if (s.StartsWith("0c"))
+
+            if (s.StartsWith("0c"))
             {
                 try
                 {
@@ -720,16 +807,15 @@ namespace Command
                 }
                 catch (Exception) { return false; }
             }
-            else if (s.StartsWith("0b"))
+
+            if (!s.StartsWith("0b")) return int.TryParse(s, out v);
+
+            try
             {
-                try
-                {
-                    v = Convert.ToInt32(s[2..], 2);
-                    return true;
-                }
-                catch (Exception) { return false; }
+                v = Convert.ToInt32(s[2..], 2);
+                return true;
             }
-            return int.TryParse(s, out v);
+            catch (Exception) { return false; }
         }
 
         private static bool TryParseLong(string s, out long v)
@@ -744,7 +830,8 @@ namespace Command
                 }
                 catch (Exception) { return false; }
             }
-            else if (s.StartsWith("0c"))
+
+            if (s.StartsWith("0c"))
             {
                 try
                 {
@@ -753,56 +840,28 @@ namespace Command
                 }
                 catch (Exception) { return false; }
             }
-            else if (s.StartsWith("0b"))
+
+            if (!s.StartsWith("0b")) return long.TryParse(s, out v);
+            try
             {
-                try
-                {
-                    v = Convert.ToInt64(s[2..], 2);
-                    return true;
-                }
-                catch (Exception) { return false; }
+                v = Convert.ToInt64(s[2..], 2);
+                return true;
             }
-            return long.TryParse(s, out v);
+            catch (Exception) { return false; }
+        }
+
+        private static void TrimEnd(StringBuilder sb)
+        {
+            for (var i = sb.Length - 1; i >= 0; i--)
+            {
+                if (IsSpace(sb[i])) continue;
+                sb.Length = i + 1;
+                return;
+            }
+            sb.Clear();
         }
 
         private static bool IsSpace(char c) => char.IsWhiteSpace(c);
-
-        private static string GetFullStr(in CMD cmd)
-        {
-            var sBuilder = new StringBuilder();
-            if (!string.IsNullOrEmpty(cmd.Command)) sBuilder.Append(cmd.Command).Append(' ');
-            if (cmd._dirParams != null) foreach (var p in cmd._dirParams) AppendStringParam(sBuilder, p).Append(' ');
-            if (cmd._params == null) return sBuilder.ToString();
-            {
-                foreach (var (k, v) in cmd._params)
-                {
-                    sBuilder.Append(ParamChar).Append(k).Append(' ');
-                    foreach (var p in v) AppendStringParam(sBuilder, p).Append(' ');
-                }
-            }
-            return sBuilder.ToString();
-
-            static StringBuilder AppendStringParam(StringBuilder sb, string p)
-            {
-                sb.Append(StrSpanChar);
-                foreach (var c in p)
-                    sb.Append(c switch
-                    {
-                        '"' => "\\\"",
-                        '\\' => "\\\\",
-                        '\n' => "\\n",
-                        '\t' => "\\t",
-                        '\0' => "\\0",
-                        '\a' => "\\a",
-                        '\b' => "\\b",
-                        '\v' => "\\v",
-                        '\f' => "\\f",
-                        '\r' => "\\r",
-                        _ => c.ToString(),
-                    });
-                return sb.Append(StrSpanChar);
-            }
-        }
 
         #endregion
     }

@@ -7,11 +7,11 @@ try
     using var file = File.OpenText("./../../../cmdTest.txt");
     var cmds = CMD.ToCMDs(file);
 
-    foreach (var c in cmds) Console.WriteLine(c);
+    foreach (var c in cmds) Console.WriteLine(c.FormattedText);
 
-    // var cmd = new CMD();
-    // var s = "command 01 #t t1 \"\\ns\" ";
-    // Console.WriteLine(CMD.AnalyzeSyntax(s, new ColorFormatter()).HighlightedCommand);
+    var cmd = new CMD();
+    var s = "command 01 #t t1 \"\\ns\" ";
+    Console.WriteLine(CMD.AnalyzeSyntax(s, new ColorFormatter()).HighlightedCommand);
 }
 catch (Exception e)
 {
