@@ -50,7 +50,7 @@ If no any valid command can be found before the first paramName, the command wou
 
 ##### Multiple line
 
-You can concat two line by using **'\\'** in **the END of** line, and write line-end comments using **"\\\\"**. When a line can not be parse to any part of command, it wound be discarded, and it would not interrupt the concatenating.
+You can concat two line by using **'\\'** in **the END of** line, and write line-end comments using **"//"**. When a line can not be parse to any part of command, it wound be discarded, and it would not interrupt the concatenating.
 
 ```
 command paramA #paramName paramB\
