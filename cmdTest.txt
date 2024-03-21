@@ -1,0 +1,14 @@
+Cmd1 param1 param2 param3 #t param4 \\\
+param5 #xx param6 0.782 0x67 0b0010010 // name 那么
+// sss
+Cmd2 params ss #xx \
+	xx2x xx2 \
+	xx9789 ss //\\ comment\
+
+if aaaa bbb cc\
+		// xxx
+//c xxname
+	xx  \
+	// xx
+\\
+else xx

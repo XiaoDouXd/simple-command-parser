@@ -1,0 +1,9 @@
+.vsconfig
+.idea
+.vscode
+/[Bb]uild
+/[Oo]bj
+/Packages
+!/Packages/manifest.json
+!/Packages/packages-lock.json
+/[bB]in/
