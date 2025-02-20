@@ -1,56 +1,57 @@
 # Simple Command Parser
 
-#### Command format
+#### Command 格式
 
 ```
 command [params ...] [[#paramName namedParams ...] ...]
 ```
 
-#### Detailed rules
+#### 语法规则
 
-##### Single line
+##### 单行
 
-`command` is the command's name which is a string located at the forefront of the command, **and** does not contain any space-like char, **and** not start with **'#'** or **'"'**;
-`params` is the value of params. it's a string that does not start with **'#'**;
-`#paramName` is the name of params. A paramName can hold lot of params, which is separated by space, also we can write params with space by enclosed with **'"'**. And the escaping is suported in the string encloed with **'"'**.
+`command` 为命令名，命令名不包含任何空格字符或 **'#'** 或 **'"'** 字符。
+`params` 为参数：
+
+- `#paramName` 是参数名，其以 **'#'** 字符串开头，在其后可以跟所多个参数，参数间使用空格分隔，对于需要包含空格的字符串参数，我们也可以使用 **'"'** 将其包围：
 
 ```
 command 0 2.1 #paramName 20000129 3.14 str "str with space" #t "2023/06/09\t\"16:46\""\n"
 ```
 
-If the a param is defined before the first #paramName, it would be  regarded as a **DirParams**.
+- 定义在第一个参数名前的参数会被计入 DirParam（直接参数）列表中：
 
 ```
 command 20240321 chengdu #event resignation
 ```
 
-The params in a empty paramName would be discarded. 
+- 如果一个参数列表的参数名为空，则其后的参数会被丢弃：
 
 ```
 command 长太息以掩涕兮 # discarded "alse would be discarded" #t aaa 2.71828
 ```
 
-If encounter a same paramName, the new param will overwrite the old ones.
+- 如果定义了两个相同的参数名，后面参数名所跟随的参数列表会将前面的覆盖：
 
 ```
 command abc 0.618 #t be overwrited #t new params xxx
 ```
 
-The dirParam which is matched before the command will be discarded.
+- 在命令名被捕获到前所捕获到的“直接参数”会被丢弃：
 
 ```
 "be discared str" cmd #p xxx
 ```
 
-If no any valid command can be found before the first paramName, the command would be `string.Empty`
+- 如果一条命令没有任何可以捕获的命令名，则命令名为 `string.Empty`：
 
 ```
 "str" #t aaa bbb ccc "ddd"
 ```
 
-##### Multiple line
+##### 多行
 
-You can concat two line by using **'\\'** in **the END of** line, and write line-end comments using **"//"**. When a line can not be parsed to any part of command, it wound be discarded, and it would not interrupt the concatenating.
+可以在**行尾** 使用 **'\\'** 来连接多行指令，可以使用 **"//"** 来书写行尾注释。当一行中的内容无法被解析成命令的任何部分，它会被丢弃而不是中断连接。
 
 ```
 command paramA #paramName paramB\
@@ -63,7 +64,7 @@ paramE
 
 -----
 
-#### Use Cases
+#### 使用例
 
 ```c#
 // parse single command
@@ -79,12 +80,12 @@ var paramOfEventInt = cmd.Int("event", 2)	// int: 0xFF
 var srcStr = cmd.ToString();		// string: command 20240321 chengdu #event resignation 01 0xFF
 
 // parse multiple line command
-var cmds = CMD.ToCMDs(file);		// cmd=>List<CMD>; file=>StreanReader
+var cmds = CMD.ToCMDs(file);		// cmd: List<CMD>; file: StreamReader
 ```
 
-#### Util
+#### 分析工具
 
-Here also provide a simple syntax highlighting and checking tool. You can use it by inheriting the **CMD.IColorFormatter** interface, and put it in the **CMD.AnalyzeSyntax** function.
+这里提供了一个简易的语法检查和高亮的工具类。你可以继承 **CMD.IColorFormatter**  接口，并将其放入 **CMD.AnalyzeSyntax** 方法中：
 
 ```c#
 public class ColorFormatter : CMD.IColorFormatter
